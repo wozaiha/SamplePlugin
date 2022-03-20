@@ -1,15 +1,17 @@
-﻿using Dalamud.Configuration;
+﻿using System;
+using System.Numerics;
+using Dalamud.Configuration;
 using Dalamud.Plugin;
-using System;
 
-namespace SamplePlugin
+namespace SkillDisplay
 {
     [Serializable]
     public class Configuration : IPluginConfiguration
     {
         public int Version { get; set; } = 0;
+        public float IconSize = 48f;
+        public Vector4 color= Vector4.One;
 
-        public bool SomePropertyToBeSavedAndWithADefault { get; set; } = true;
 
         // the below exist just to make saving less cumbersome
 

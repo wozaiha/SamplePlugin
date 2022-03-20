@@ -1,0 +1,14 @@
+{
+    "Author": "wozaiha",
+    "Name": "SkillDisplay",
+    "Punchline": "显示你最近释放过的技能.",
+    "Description": "显示你最近使用过的技能,使用/skilldisplay打开设置.",
+    "InternalName": "SkillDisplay",
+    "ApplicableVersion": "any",
+    "Tags": [
+        "SkillDisplay",
+        "skill",
+        "Imgui",
+        "UI"
+    ]
+}
