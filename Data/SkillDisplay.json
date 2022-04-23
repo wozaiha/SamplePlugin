@@ -1,8 +1,8 @@
 {
     "Author": "wozaiha",
     "Name": "SkillDisplay",
-    "Punchline": "显示你最近释放过的技能.",
-    "Description": "显示你最近使用过的技能,使用/skilldisplay打开设置.",
+    "Punchline": "Show the skills you used in the past few seconds.",
+    "Description": "Show the skills you used in the past few seconds.",
     "InternalName": "SkillDisplay",
     "ApplicableVersion": "any",
     "Tags": [
@@ -10,5 +10,6 @@
         "skill",
         "Imgui",
         "UI"
-    ]
+    ],
+    "DalamudApiLevel": 6
 }
