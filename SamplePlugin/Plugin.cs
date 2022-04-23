@@ -4,138 +4,109 @@ using Dalamud.Hooking;
 using Dalamud.Logging;
 using Dalamud.Plugin;
 
-namespace SkillDisplay
+namespace SkillDisplay;
+
+public sealed class Plugin : IDalamudPlugin
 {
-    public sealed class Plugin : IDalamudPlugin
+    public string Name => "SkillDisplay";
+    public Configuration Configuration;
+    private PluginUI PluginUi;
+
+    private delegate void EffectDelegate(uint sourceId, IntPtr sourceCharacter);
+    private Hook<EffectDelegate> EffectEffectHook;
+
+    private delegate void ReceiveAbiltyDelegate(int sourceId, IntPtr sourceCharacter, IntPtr pos,
+        IntPtr effectHeader, IntPtr effectArray, IntPtr effectTrail);
+    private Hook<ReceiveAbiltyDelegate> ReceivAbilityHook;
+
+    private delegate void ActorControlSelfDelegate(uint entityId, uint id, uint arg0, uint arg1, uint arg2,
+        uint arg3, uint arg4, uint arg5, ulong targetId, byte a10);
+    private Hook<ActorControlSelfDelegate> ActorControlSelfHook;
+
+    private delegate void CastDelegate(uint sourceId, IntPtr sourceCharacter);
+    private Hook<CastDelegate> CastHook;
+
+    public Plugin(DalamudPluginInterface pluginInterface)
     {
-        public string Name => "SkillDisplay";
-        public Configuration Configuration;
-        private PluginUI PluginUi;
+        DalamudApi.Initialize(this, pluginInterface);
 
-        private delegate void EffectDelegate(uint sourceId, IntPtr sourceCharacter);
-        private Hook<EffectDelegate> EffectEffectHook;
+        Configuration = DalamudApi.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        Configuration.Initialize(DalamudApi.PluginInterface);
 
-        private delegate void ReceiveAbiltyDelegate(int sourceId, IntPtr sourceCharacter, IntPtr pos,
-            IntPtr effectHeader, IntPtr effectArray, IntPtr effectTrail);
-        private Hook<ReceiveAbiltyDelegate> ReceivAbilityHook;
+        PluginUi = new PluginUI(this);
 
-        private delegate void ActorControlSelfDelegate(uint entityId, uint id, uint arg0, uint arg1, uint arg2,
-            uint arg3, uint arg4, uint arg5, ulong targetId, byte a10);
-        private Hook<ActorControlSelfDelegate> ActorControlSelfHook;
+        #region Hook
 
-        private delegate void CastDelegate(uint sourceId, IntPtr sourceCharacter);
-        private Hook<CastDelegate> CastHook;
-
-        public Plugin(DalamudPluginInterface pluginInterface)
         {
-            DalamudApi.Initialize(this, pluginInterface);
-
-            Configuration = DalamudApi.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-            Configuration.Initialize(DalamudApi.PluginInterface);
-
-            PluginUi = new PluginUI(this);
-
-            #region Hook
-
-            {
-                ReceivAbilityHook = new Hook<ReceiveAbiltyDelegate>(
-                    DalamudApi.SigScanner.ScanText(DalamudApi.DataManager.GameData.Repositories["ffxiv"].Version == "2022.03.29.0000.0000" ? "4C 89 44 24 18 53 56 57 41 54 41 57 48 81 EC ?? 00 00 00 8B F9":"4C 89 44 24 ?? 55 56 57 41 54 41 55 41 56 48 8D 6C 24 ??"),
-                    ReceiveAbilityEffect);
-                ReceivAbilityHook.Enable();
-                ActorControlSelfHook = new Hook<ActorControlSelfDelegate>(
-                    DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? 0F B7 0B 83 E9 64"), ReceiveActorControlSelf);
-                ActorControlSelfHook.Enable();
-                CastHook = new Hook<CastDelegate>(
-                    DalamudApi.SigScanner.ScanText("40 55 56 48 81 EC ?? ?? ?? ?? 48 8B EA"), StartCast);
-                CastHook.Enable();
-            }
-
-            #endregion
+            ReceivAbilityHook = new Hook<ReceiveAbiltyDelegate>(
+                DalamudApi.SigScanner.ScanText(
+                    DalamudApi.DataManager.GameData.Repositories["ffxiv"].Version == "2022.03.29.0000.0000"
+                        ? "4C 89 44 24 18 53 56 57 41 54 41 57 48 81 EC ?? 00 00 00 8B F9"
+                        : "4C 89 44 24 ?? 55 56 57 41 54 41 55 41 56 48 8D 6C 24 ??"),
+                ReceiveAbilityEffect);
+            ReceivAbilityHook.Enable();
+            ActorControlSelfHook = new Hook<ActorControlSelfDelegate>(
+                DalamudApi.SigScanner.ScanText("E8 ?? ?? ?? ?? 0F B7 0B 83 E9 64"), ReceiveActorControlSelf);
+            ActorControlSelfHook.Enable();
+            CastHook = new Hook<CastDelegate>(
+                DalamudApi.SigScanner.ScanText("40 55 56 48 81 EC ?? ?? ?? ?? 48 8B EA"), StartCast);
+            CastHook.Enable();
         }
 
-        private void StartCast(uint source, IntPtr ptr)
-        {
-            var action = Marshal.ReadInt16(ptr);
-            var type = Marshal.ReadByte(ptr,2);
-            CastHook.Original(source, ptr);
-            
-            if (DalamudApi.ClientState.LocalPlayer == null) return;
-            if (source != DalamudApi.ClientState.LocalPlayer?.ObjectId || type != 1) return;
-            PluginLog.Debug($"Casting:{action}:{type}");
-            PluginUi.Cast((uint)action);
-        }
+        #endregion
+    }
 
-        private void ReceiveActorControlSelf(uint entityId, uint type, uint buffID, uint direct, uint actionId, uint sourceId,
-            uint arg4, uint arg5, ulong targetId, byte a10)
-        {
-            ActorControlSelfHook.Original(entityId, type, buffID, direct, actionId, sourceId, arg4, arg5, targetId, a10);
-            if (type != 15) return;
-            if (DalamudApi.ClientState.LocalPlayer == null) return;
-            PluginLog.Debug($"Cancel:{entityId:X} {actionId}");
-            if (entityId == DalamudApi.ClientState.LocalPlayer?.ObjectId)  PluginUi.Cancel((uint)actionId);
-        }
+    private void StartCast(uint source, IntPtr ptr)
+    {
+        var action = Marshal.ReadInt16(ptr);
+        var type = Marshal.ReadByte(ptr, 2);
+        CastHook.Original(source, ptr);
 
-        private unsafe void ReceiveAbilityEffect(int sourceId, IntPtr sourceCharacter, IntPtr pos, IntPtr effectHeader,
-            IntPtr effectArray, IntPtr effectTrail)
-        {
-            var action = Marshal.ReadInt32(effectHeader,0x8);
-            var type = Marshal.ReadByte(effectHeader,31);
-            ReceivAbilityHook.Original(sourceId, sourceCharacter, pos, effectHeader, effectArray, effectTrail);
-            
-            if (DalamudApi.ClientState.LocalPlayer == null) return;
-            if (sourceId != DalamudApi.ClientState.LocalPlayer?.ObjectId || type != 1) return;
-            PluginLog.Debug($"Do:{action}:{type}");
-            PluginUi.DoAction((uint)action);
-        }
-        
-        public void Dispose()
-        {
-            EffectEffectHook?.Dispose();
-            CastHook.Dispose();
-            ReceivAbilityHook.Dispose();
-            ActorControlSelfHook.Dispose();
-            PluginUi?.Dispose();
-            DalamudApi.Dispose();
-        }
+        if (DalamudApi.ClientState.LocalPlayer == null) return;
+        if (source != (Configuration.TargetMode ? DalamudApi.TargetManager.Target?.ObjectId : DalamudApi.ClientState.LocalPlayer?.ObjectId) || type != 1) return;
+        PluginLog.Debug($"Casting:{action}:{type}");
+        PluginUi.Cast((uint) action);
+    }
 
-        [Command("/skilldisplay")]
-        [HelpMessage("Show config window.")]
-        private void OnCommand(string command, string args)
-        {
-            // in response to the slash command, just display our main ui
-            PluginUi.SettingsVisible = true;
-        }
+    private void ReceiveActorControlSelf(uint entityId, uint type, uint buffID, uint direct, uint actionId,
+        uint sourceId,
+        uint arg4, uint arg5, ulong targetId, byte a10)
+    {
+        ActorControlSelfHook.Original(entityId, type, buffID, direct, actionId, sourceId, arg4, arg5, targetId, a10);
+        if (type != 15) return;
+        if (DalamudApi.ClientState.LocalPlayer == null) return;
+        PluginLog.Debug($"Cancel:{entityId:X} {actionId}");
+        if (entityId == (Configuration.TargetMode ? DalamudApi.TargetManager.Target?.ObjectId : DalamudApi.ClientState.LocalPlayer?.ObjectId)) PluginUi.Cancel(actionId);
+    }
 
-        [StructLayout(LayoutKind.Explicit, Size = 0x2A)]
-        public struct Header
-        {
-            [FieldOffset(0x0)] private ulong animationTargetId; // who the animation targets
+    private void ReceiveAbilityEffect(int sourceId, IntPtr sourceCharacter, IntPtr pos, IntPtr effectHeader,
+        IntPtr effectArray, IntPtr effectTrail)
+    {
+        var action = Marshal.ReadInt32(effectHeader, 0x8);
+        var type = Marshal.ReadByte(effectHeader, 31);
+        ReceivAbilityHook.Original(sourceId, sourceCharacter, pos, effectHeader, effectArray, effectTrail);
 
-            [FieldOffset(0x8)] public uint actionId; // what the casting player casts, shown in battle log/ui
-            [FieldOffset(0xC)] private uint globalSequence; // seems to only increment on retail?
+        if (DalamudApi.ClientState.LocalPlayer == null) return;
+        if (sourceId != (Configuration.TargetMode ? DalamudApi.TargetManager.Target?.ObjectId : DalamudApi.ClientState.LocalPlayer?.ObjectId) || type != 1) return;
+        PluginLog.Debug($"Do:{action}:{type}");
+        PluginUi.DoAction((uint) action);
+    }
 
-            [FieldOffset(0x10)] private float animationLockTime; // maybe? doesn't seem to do anything
+    public void Dispose()
+    {
+        EffectEffectHook?.Dispose();
+        CastHook.Dispose();
+        ReceivAbilityHook.Dispose();
+        ActorControlSelfHook.Dispose();
+        PluginUi?.Dispose();
+        DalamudApi.Dispose();
+    }
 
-            [FieldOffset(0x14)]
-            private uint someTargetId; // always 00 00 00 E0, 0x0E000000 is the internal def for INVALID TARGET ID
-
-            [FieldOffset(0x18)]
-            private ushort
-                sourceSequence; // if 0, always shows animation, otherwise hides it. counts up by 1 for each animation skipped on a caster
-
-            [FieldOffset(0x1A)] private ushort rotation;
-            [FieldOffset(0x1C)] private ushort actionAnimationId; // the animation that is played by the casting character
-            [FieldOffset(0x1E)] private byte variation; // variation in the animation
-            [FieldOffset(0x1F)] private byte effectDisplayType;
-
-            [FieldOffset(0x20)]
-            private byte unknown20; // is read by handler, runs code which gets the LODWORD of animationLockTime (wtf?)
-
-            [FieldOffset(0x21)] private byte effectCount; // ignores effects if 0, otherwise parses all of them
-            [FieldOffset(0x22)] private ushort padding0;
-
-            [FieldOffset(0x24)] private uint padding1;
-            [FieldOffset(0x28)] private ushort padding2;
-        }
+    [Command("/skilldisplay")]
+    [HelpMessage("Show config window.")]
+    private void OnCommand(string command, string args)
+    {
+        // in response to the slash command, just display our main ui
+        PluginUi.SettingsVisible = true;
     }
 }

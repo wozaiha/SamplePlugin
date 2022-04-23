@@ -12,7 +12,6 @@ namespace SkillDisplay;
 internal class PluginUI : IDisposable
 {
     public static Dictionary<uint, TextureWrap?> Icon = new();
-    private Plugin _plugin;
 
     private readonly ExcelSheet<Action> Action = DalamudApi.DataManager.GetExcelSheet<Action>();
     private readonly Configuration config;
@@ -25,7 +24,6 @@ internal class PluginUI : IDisposable
 
     public PluginUI(Plugin p)
     {
-        _plugin = p;
         config = p.Configuration;
         DalamudApi.PluginInterface.UiBuilder.Draw += Draw;
         DalamudApi.PluginInterface.UiBuilder.Draw += DrawConfig;
@@ -33,6 +31,8 @@ internal class PluginUI : IDisposable
         if (!Icon.ContainsKey(0))
             Icon.TryAdd(0,
                 DalamudApi.DataManager.GetImGuiTextureHqIcon(0));
+        Icon.TryAdd(405,
+            DalamudApi.DataManager.GetImGuiTextureHqIcon(101));
     }
 
     public void Dispose()
@@ -110,6 +110,7 @@ internal class PluginUI : IDisposable
     public void Draw()
     {
         ImGui.SetNextWindowBgAlpha(config.Alpha);
+        
         var flags = config.Lock
             ? ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMouseInputs | ImGuiWindowFlags.NoTitleBar
             : ImGuiWindowFlags.NoTitleBar;
@@ -139,7 +140,7 @@ internal class PluginUI : IDisposable
 
             if (skill.Action.ActionCategory.Row is 1) //自动攻击
             {
-                pos = pos + new Vector2(0, size.Y);
+                pos += new Vector2(0, size.Y);
                 size /= 2;
             }
 
@@ -147,7 +148,7 @@ internal class PluginUI : IDisposable
             {
                 if (!config.ShowAuto && skill.Action.RowId is 7 or 8) continue;
                 size *= 0.6f;
-                var target = ImGui.GetWindowPos() + new Vector2(ImGui.GetColumnWidth(), size.Y);
+                var target = ImGui.GetWindowPos() + new Vector2(ImGui.GetWindowWidth(), pos.Y-ImGui.GetWindowPos().Y+size.Y  );
                 for (var j = i + 1; j < Skilllist.Count; j++)
                 {
                     if (Skilllist[j].Action.RowId != skill.Action.RowId) continue;
@@ -193,6 +194,8 @@ internal class PluginUI : IDisposable
         changed |= ImGui.InputInt("###Icon Size", ref size, 1);
         changed |= ImGui.ColorPicker4("Connection Color", ref config.color, ImGuiColorEditFlags.NoInputs);
         changed |= ImGui.Checkbox("Show Auto-attack.", ref config.ShowAuto);
+        changed |= ImGui.Checkbox("Target Mode", ref config.TargetMode);
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Will show nothing if no target is selected!");
         if (ImGui.Button("Reset Size")) reset = true;
         if (changed)
         {
