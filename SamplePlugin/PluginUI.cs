@@ -11,36 +11,16 @@ namespace SkillDisplay;
 
 internal class PluginUI : IDisposable
 {
-    private Configuration config;
-
-    public bool SettingsVisible = false;
+    public static Dictionary<uint, TextureWrap?> Icon = new();
     private Plugin _plugin;
 
-    private ExcelSheet<Action> Action = DalamudApi.DataManager.GetExcelSheet<Action>();
+    private readonly ExcelSheet<Action> Action = DalamudApi.DataManager.GetExcelSheet<Action>();
+    private readonly Configuration config;
 
-    public class Skill
-    {
-        public Action Action;
-        public long Time;
-        public ActionType Type;
+    public bool SettingsVisible = false;
+    bool reset = false;
 
-        public enum ActionType
-        {
-            Cast,
-            Do,
-            Cancel
-        }
-
-        public Skill(Action action, long time, ActionType type)
-        {
-            Action = action;
-            Time = time;
-            Type = type;
-        }
-    }
-
-    private List<Skill> Skilllist = new();
-    public static Dictionary<uint, TextureWrap?> Icon = new();
+    private readonly List<Skill> Skilllist = new();
     private ImDrawListPtr window;
 
     public PluginUI(Plugin p)
@@ -65,47 +45,81 @@ internal class PluginUI : IDisposable
 
     public void DoAction(uint actionId)
     {
-        var action = Action.GetRow(actionId)!;
-        var iconId = action.Icon;
-        if (!Icon.ContainsKey(iconId))
-            Icon.TryAdd(iconId,
-                DalamudApi.DataManager.GetImGuiTextureHqIcon(iconId));
-        Skilllist.Add(new Skill(action, DateTimeOffset.Now.ToUnixTimeMilliseconds(), Skill.ActionType.Do));
-        PluginLog.Information($"Adding:{action.RowId}:{action.ActionCategory.Row}");
+        try
+        {
+            var action = Action.GetRow(actionId)!;
+            var iconId = action.Icon;
+            if (!Icon.ContainsKey(iconId))
+                Icon.TryAdd(iconId,
+                    DalamudApi.DataManager.GetImGuiTextureHqIcon(iconId));
+            Skilllist.Add(new Skill(action, DateTimeOffset.Now.ToUnixTimeMilliseconds(), Skill.ActionType.Do));
+            PluginLog.Debug($"Adding:{action.RowId}:{action.ActionCategory.Row}");
+        }
+        catch (Exception e)
+        {
+            PluginLog.Error(e.ToString());
+            throw;
+        }
+        
     }
 
     public void Cast(uint actionId)
     {
-        var action = Action.GetRow(actionId)!;
-        var iconId = action.Icon;
-        if (!Icon.ContainsKey(iconId))
-            Icon.TryAdd(iconId,
-                DalamudApi.DataManager.GetImGuiTextureHqIcon(iconId));
-        Skilllist.Add(new Skill(action, DateTimeOffset.Now.ToUnixTimeMilliseconds(), Skill.ActionType.Cast));
+        try
+        {
+            var action = Action.GetRow(actionId)!;
+            var iconId = action.Icon;
+            if (!Icon.ContainsKey(iconId))
+                Icon.TryAdd(iconId,
+                    DalamudApi.DataManager.GetImGuiTextureHqIcon(iconId));
+            Skilllist.Add(new Skill(action, DateTimeOffset.Now.ToUnixTimeMilliseconds(), Skill.ActionType.Cast));
+        }
+        catch (Exception e)
+        {
+            PluginLog.Error(e.ToString()); 
+            throw;
+        }
+        
     }
 
     public void Cancel(uint actionId)
     {
-        var action = Action.GetRow(actionId)!;
-        var iconId = action.Icon;
-        if (!Icon.ContainsKey(iconId))
-            Icon.TryAdd(iconId,
-                DalamudApi.DataManager.GetImGuiTextureHqIcon(iconId));
-        Skilllist.Add(new Skill(action, DateTimeOffset.Now.ToUnixTimeMilliseconds(), Skill.ActionType.Cancel));
-        PluginLog.Information($"Adding:{action.RowId}");
+        try
+        {
+            var action = Action.GetRow(actionId)!;
+            var iconId = action.Icon;
+            if (!Icon.ContainsKey(iconId))
+                Icon.TryAdd(iconId,
+                    DalamudApi.DataManager.GetImGuiTextureHqIcon(iconId));
+            Skilllist.Add(new Skill(action, DateTimeOffset.Now.ToUnixTimeMilliseconds(), Skill.ActionType.Cancel));
+            PluginLog.Debug($"Adding:{action.RowId}");
+        }
+        catch (Exception e)
+        {
+            PluginLog.Error(e.ToString());
+            throw;
+        }
     }
 
 
     public void DrawConfigUI()
     {
-        DrawConfig();
+        SettingsVisible = true;
     }
 
     public void Draw()
     {
-        ImGui.SetNextWindowSize(new Vector2(config.IconSize * 10, config.IconSize * 1.5f));
-        ImGui.Begin("main", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize);
-
+        ImGui.SetNextWindowBgAlpha(config.Alpha);
+        var flags = config.Lock
+            ? ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMouseInputs | ImGuiWindowFlags.NoTitleBar
+            : ImGuiWindowFlags.NoTitleBar;
+        ImGui.Begin("main", flags);
+        ImGui.SetWindowSize(new Vector2(config.IconSize * 10, config.IconSize * 1.5f),ImGuiCond.FirstUseEver);
+        if (reset)
+        {
+            ImGui.SetWindowSize(new Vector2(config.IconSize * 10, config.IconSize * 1.5f));
+            reset = false;
+        }
         window = ImGui.GetWindowDrawList();
         var color = ImGui.ColorConvertFloat4ToU32(config.color);
 
@@ -115,10 +129,11 @@ internal class PluginUI : IDisposable
             var speed = size.X / 600;
             var skill = Skilllist[i];
             var pos = ImGui.GetWindowPos() + ImGui.GetWindowSize() - size -
-                      new Vector2((DateTimeOffset.Now.ToUnixTimeMilliseconds() - skill.Time) * speed - size.X/2f, size.Y / 2);
+                      new Vector2((DateTimeOffset.Now.ToUnixTimeMilliseconds() - skill.Time) * speed - size.X / 2f,
+                          size.Y / 2);
             if (skill.Action.ActionCategory.Row is 4) // 能力
             {
-                pos = pos + new Vector2(0, size.Y / 2);
+                pos += new Vector2(0, size.Y / 2);
                 size /= 1.5f;
             }
 
@@ -130,17 +145,18 @@ internal class PluginUI : IDisposable
 
             if (skill.Type == Skill.ActionType.Cast)
             {
+                if (!config.ShowAuto && skill.Action.RowId is 7 or 8) continue;
                 size *= 0.6f;
                 var target = ImGui.GetWindowPos() + new Vector2(ImGui.GetColumnWidth(), size.Y);
                 for (var j = i + 1; j < Skilllist.Count; j++)
                 {
                     if (Skilllist[j].Action.RowId != skill.Action.RowId) continue;
                     target = ImGui.GetWindowPos() + ImGui.GetWindowSize() - new Vector2(
-                        (DateTimeOffset.Now.ToUnixTimeMilliseconds() - Skilllist[j].Time) * speed + config.IconSize/2,
+                        (DateTimeOffset.Now.ToUnixTimeMilliseconds() - Skilllist[j].Time) * speed + config.IconSize / 2,
                         config.IconSize * 1.5f - size.Y);
-                    ImGui.Text($"{i}:{j}:{Skilllist.Count}");
                     break;
                 }
+
                 if (target.X - pos.X - size.X > 0) window.AddRectFilled(pos + new Vector2(size.X, 0), target, color);
             }
 
@@ -149,29 +165,62 @@ internal class PluginUI : IDisposable
             //    window.AddRectFilled(ImGui.GetWindowPos(),pos + size*0.6f, color);
             //}
 
-            if (skill.Type != Skill.ActionType.Cancel) window.AddImage(Icon[skill.Action.Icon]!.ImGuiHandle, pos, pos + size);
-            else window.AddImage(Icon[skill.Action.Icon]!.ImGuiHandle, pos, pos+Vector2.One);
-            if ((DateTimeOffset.Now.ToUnixTimeMilliseconds() - skill.Time) * speed > ImGui.GetWindowWidth())
+            if (skill.Type != Skill.ActionType.Cancel)
+            {
+                if (!config.ShowAuto && skill.Action.RowId is 7 or 8) continue;
+                window.AddImage(Icon[skill.Action.Icon]!.ImGuiHandle, pos, pos + size);
+            }
+            else window.AddImage(Icon[skill.Action.Icon]!.ImGuiHandle, pos, pos + Vector2.One);
+            if ((DateTimeOffset.Now.ToUnixTimeMilliseconds() - skill.Time - 6000f) * speed > ImGui.GetWindowWidth())
                 Skilllist.Remove(skill);
         }
+
         ImGui.End();
     }
 
-    void DrawConfig()
+    private void DrawConfig()
     {
         if (!SettingsVisible) return;
-        ImGui.Begin("SkillConfig",ref SettingsVisible,ImGuiWindowFlags.AlwaysAutoResize);
-        var size = (int)config.IconSize;
+        ImGui.Begin("SkillConfig", ref SettingsVisible, ImGuiWindowFlags.AlwaysAutoResize);
+        var size = (int) config.IconSize;
         var changed = false;
+        changed |= ImGui.Checkbox("Lock", ref config.Lock);
+        ImGui.Text("Background Alpha:");
+        ImGui.SameLine();
+        changed |= ImGui.SliderFloat("###alpha",ref config.Alpha,0f,1f);
         ImGui.Text("Icon Size:");
         ImGui.SameLine();
-        changed |= ImGui.InputInt("###Icon Size", ref size,1);
-        changed |= ImGui.ColorPicker4("Connection Color", ref config.color,ImGuiColorEditFlags.NoInputs);
+        changed |= ImGui.InputInt("###Icon Size", ref size, 1);
+        changed |= ImGui.ColorPicker4("Connection Color", ref config.color, ImGuiColorEditFlags.NoInputs);
+        changed |= ImGui.Checkbox("Show Auto-attack.", ref config.ShowAuto);
+        if (ImGui.Button("Reset Size")) reset = true;
         if (changed)
         {
             config.IconSize = size;
             config.Save();
         }
+
         ImGui.End();
+    }
+
+    public class Skill
+    {
+        public enum ActionType
+        {
+            Cast,
+            Do,
+            Cancel
+        }
+
+        public Action Action;
+        public long Time;
+        public ActionType Type;
+
+        public Skill(Action action, long time, ActionType type)
+        {
+            Action = action;
+            Time = time;
+            Type = type;
+        }
     }
 }

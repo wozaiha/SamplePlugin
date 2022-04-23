@@ -56,28 +56,36 @@ namespace SkillDisplay
         private void StartCast(uint source, IntPtr ptr)
         {
             var action = Marshal.ReadInt16(ptr);
-            
+            var type = Marshal.ReadByte(ptr,2);
             CastHook.Original(source, ptr);
-            PluginLog.Information($"Casting:{action}");
-            if (source == DalamudApi.ClientState.LocalPlayer?.ObjectId) PluginUi.Cast((uint)action);
+            
+            if (DalamudApi.ClientState.LocalPlayer == null) return;
+            if (source != DalamudApi.ClientState.LocalPlayer?.ObjectId || type != 1) return;
+            PluginLog.Debug($"Casting:{action}:{type}");
+            PluginUi.Cast((uint)action);
         }
 
         private void ReceiveActorControlSelf(uint entityId, uint type, uint buffID, uint direct, uint actionId, uint sourceId,
             uint arg4, uint arg5, ulong targetId, byte a10)
         {
             ActorControlSelfHook.Original(entityId, type, buffID, direct, actionId, sourceId, arg4, arg5, targetId, a10);
-            if (type == 15) PluginLog.Log($"Cancel:{entityId:X} {actionId}");
             if (type != 15) return;
+            if (DalamudApi.ClientState.LocalPlayer == null) return;
+            PluginLog.Debug($"Cancel:{entityId:X} {actionId}");
             if (entityId == DalamudApi.ClientState.LocalPlayer?.ObjectId)  PluginUi.Cancel((uint)actionId);
         }
 
         private unsafe void ReceiveAbilityEffect(int sourceId, IntPtr sourceCharacter, IntPtr pos, IntPtr effectHeader,
             IntPtr effectArray, IntPtr effectTrail)
         {
-            var action = Marshal.ReadInt32(effectHeader + 0x8);
+            var action = Marshal.ReadInt32(effectHeader,0x8);
+            var type = Marshal.ReadByte(effectHeader,31);
             ReceivAbilityHook.Original(sourceId, sourceCharacter, pos, effectHeader, effectArray, effectTrail);
-            PluginLog.Log($"Do:{action}");
-            if (sourceId == DalamudApi.ClientState.LocalPlayer?.ObjectId)  PluginUi.DoAction((uint)action);
+            
+            if (DalamudApi.ClientState.LocalPlayer == null) return;
+            if (sourceId != DalamudApi.ClientState.LocalPlayer?.ObjectId || type != 1) return;
+            PluginLog.Debug($"Do:{action}:{type}");
+            PluginUi.DoAction((uint)action);
         }
         
         public void Dispose()

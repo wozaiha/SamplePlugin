@@ -11,6 +11,9 @@ namespace SkillDisplay
         public int Version { get; set; } = 0;
         public float IconSize = 48f;
         public Vector4 color= Vector4.One;
+        public bool ShowAuto = false;
+        public float Alpha = 0.7f;
+        public bool Lock = false;
 
 
         // the below exist just to make saving less cumbersome
