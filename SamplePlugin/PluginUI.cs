@@ -182,7 +182,7 @@ internal class PluginUI : IDisposable
     private void DrawConfig()
     {
         if (!SettingsVisible) return;
-        ImGui.Begin("SkillConfig", ref SettingsVisible, ImGuiWindowFlags.AlwaysAutoResize);
+        ImGui.Begin("SkillDisplay Config", ref SettingsVisible, ImGuiWindowFlags.AlwaysAutoResize);
         var size = (int) config.IconSize;
         var changed = false;
         changed |= ImGui.Checkbox("Lock", ref config.Lock);
