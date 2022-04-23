@@ -21,6 +21,7 @@ internal class PluginUI : IDisposable
 
     private readonly List<Skill> Skilllist = new();
     private ImDrawListPtr window;
+    private uint target = 0xE0000000;
 
     public PluginUI(Plugin p)
     {
@@ -110,7 +111,11 @@ internal class PluginUI : IDisposable
     public void Draw()
     {
         ImGui.SetNextWindowBgAlpha(config.Alpha);
-        
+        if (config.TargetMode && DalamudApi.TargetManager.Target != null && target != DalamudApi.TargetManager.Target.ObjectId)
+        {
+            target = DalamudApi.TargetManager.Target.ObjectId;
+            Skilllist.Clear();
+        } 
         var flags = config.Lock
             ? ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMouseInputs | ImGuiWindowFlags.NoTitleBar
             : ImGuiWindowFlags.NoTitleBar;
