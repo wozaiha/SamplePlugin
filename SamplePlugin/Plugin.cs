@@ -40,7 +40,7 @@ public sealed class Plugin : IDalamudPlugin
         {
             ReceivAbilityHook = new Hook<ReceiveAbiltyDelegate>(
                 DalamudApi.SigScanner.ScanText(
-                    DalamudApi.DataManager.GameData.Repositories["ffxiv"].Version == "2022.03.29.0000.0000"
+                    DalamudApi.DataManager.GameData.Repositories["ffxiv"].Version == "2022.04.15.0000.0000"
                         ? "4C 89 44 24 18 53 56 57 41 54 41 57 48 81 EC ?? 00 00 00 8B F9"
                         : "4C 89 44 24 ?? 55 56 57 41 54 41 55 41 56 48 8D 6C 24 ??"),
                 ReceiveAbilityEffect);

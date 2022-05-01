@@ -41,7 +41,7 @@ internal class PluginUI : IDisposable
         DalamudApi.PluginInterface.UiBuilder.Draw -= Draw;
         DalamudApi.PluginInterface.UiBuilder.Draw -= DrawConfig;
         DalamudApi.PluginInterface.UiBuilder.OpenConfigUi -= DrawConfigUI;
-        foreach (var (id, icon) in Icon) icon.Dispose();
+        foreach (var (id, icon) in Icon) icon?.Dispose();
     }
 
     public void DoAction(uint actionId)
@@ -49,12 +49,16 @@ internal class PluginUI : IDisposable
         try
         {
             var action = Action.GetRow(actionId)!;
+            if (actionId == 3)
+            {
+                action.Icon = 104;
+            }
             var iconId = action.Icon;
             if (!Icon.ContainsKey(iconId))
                 Icon.TryAdd(iconId,
                     DalamudApi.DataManager.GetImGuiTextureHqIcon(iconId));
             Skilllist.Add(new Skill(action, DateTimeOffset.Now.ToUnixTimeMilliseconds(), Skill.ActionType.Do));
-            PluginLog.Debug($"Adding:{action.RowId}:{action.ActionCategory.Row}");
+            PluginLog.Debug($"Adding:{action.RowId}:{action.ActionCategory.Row}:{iconId}");
         }
         catch (Exception e)
         {
@@ -137,7 +141,7 @@ internal class PluginUI : IDisposable
             var pos = ImGui.GetWindowPos() + ImGui.GetWindowSize() - size -
                       new Vector2((DateTimeOffset.Now.ToUnixTimeMilliseconds() - skill.Time) * speed - size.X / 2f,
                           size.Y / 2);
-            if (skill.Action.ActionCategory.Row is 4) // 能力
+            if (skill.Action.ActionCategory.Row is 4 || skill.Action.RowId is 3) // 能力 or 冲刺
             {
                 pos += new Vector2(0, size.Y / 2);
                 size /= 1.5f;
