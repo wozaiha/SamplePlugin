@@ -14,7 +14,7 @@ namespace SkillDisplay
         public bool ShowAuto = false;
         public float Alpha = 0.7f;
         public bool Lock = false;
-        public bool TargetMode = false;
+        public int Mode;
 
 
         // the below exist just to make saving less cumbersome

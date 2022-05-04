@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Dalamud.Hooking;
 using Dalamud.Logging;
@@ -15,7 +16,7 @@ public sealed class Plugin : IDalamudPlugin
     private delegate void EffectDelegate(uint sourceId, IntPtr sourceCharacter);
     private Hook<EffectDelegate> EffectEffectHook;
 
-    private delegate void ReceiveAbiltyDelegate(int sourceId, IntPtr sourceCharacter, IntPtr pos,
+    private delegate void ReceiveAbiltyDelegate(uint sourceId, IntPtr sourceCharacter, IntPtr pos,
         IntPtr effectHeader, IntPtr effectArray, IntPtr effectTrail);
     private Hook<ReceiveAbiltyDelegate> ReceivAbilityHook;
 
@@ -63,9 +64,9 @@ public sealed class Plugin : IDalamudPlugin
         CastHook.Original(source, ptr);
 
         if (DalamudApi.ClientState.LocalPlayer == null) return;
-        if (source != (Configuration.TargetMode ? DalamudApi.TargetManager.Target?.ObjectId : DalamudApi.ClientState.LocalPlayer?.ObjectId) || type != 1) return;
+        if (source != CheckTarget() || type != 1) return;
         PluginLog.Debug($"Casting:{action}:{type}");
-        PluginUi.Cast((uint) action);
+        PluginUi.Cast(source,(uint) action);
     }
 
     private void ReceiveActorControlSelf(uint entityId, uint type, uint buffID, uint direct, uint actionId,
@@ -75,11 +76,12 @@ public sealed class Plugin : IDalamudPlugin
         ActorControlSelfHook.Original(entityId, type, buffID, direct, actionId, sourceId, arg4, arg5, targetId, a10);
         if (type != 15) return;
         if (DalamudApi.ClientState.LocalPlayer == null) return;
+        if (entityId != CheckTarget() || type != 1) return;
         PluginLog.Debug($"Cancel:{entityId:X} {actionId}");
-        if (entityId == (Configuration.TargetMode ? DalamudApi.TargetManager.Target?.ObjectId : DalamudApi.ClientState.LocalPlayer?.ObjectId)) PluginUi.Cancel(actionId);
+        PluginUi.Cancel(entityId,actionId);
     }
 
-    private void ReceiveAbilityEffect(int sourceId, IntPtr sourceCharacter, IntPtr pos, IntPtr effectHeader,
+    private void ReceiveAbilityEffect(uint sourceId, IntPtr sourceCharacter, IntPtr pos, IntPtr effectHeader,
         IntPtr effectArray, IntPtr effectTrail)
     {
         var action = Marshal.ReadInt32(effectHeader, 0x8);
@@ -87,9 +89,19 @@ public sealed class Plugin : IDalamudPlugin
         ReceivAbilityHook.Original(sourceId, sourceCharacter, pos, effectHeader, effectArray, effectTrail);
 
         if (DalamudApi.ClientState.LocalPlayer == null) return;
-        if (sourceId != (Configuration.TargetMode ? DalamudApi.TargetManager.Target?.ObjectId : DalamudApi.ClientState.LocalPlayer?.ObjectId) || type != 1) return;
+        if (sourceId != CheckTarget() || type != 1) return;
         PluginLog.Debug($"Do:{action}:{type}");
-        PluginUi.DoAction((uint) action);
+        PluginUi.DoAction(sourceId,(uint) action);
+    }
+
+    public uint? CheckTarget()
+    {
+        return Configuration.Mode switch
+        {
+            1 => DalamudApi.TargetManager.Target?.ObjectId,
+            2 => DalamudApi.TargetManager.FocusTarget?.ObjectId,
+            _ => DalamudApi.ClientState.LocalPlayer?.ObjectId,
+        };
     }
 
     public void Dispose()

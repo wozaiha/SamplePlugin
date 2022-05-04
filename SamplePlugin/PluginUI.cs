@@ -19,12 +19,15 @@ internal class PluginUI : IDisposable
     public bool SettingsVisible = false;
     bool reset = false;
 
+    private Plugin plugin;
     private readonly List<Skill> Skilllist = new();
     private ImDrawListPtr window;
     private uint target = 0xE0000000;
+    private string[] modes = new[] {"Self", "Target", "Focus"};
 
     public PluginUI(Plugin p)
     {
+        plugin = p;
         config = p.Configuration;
         DalamudApi.PluginInterface.UiBuilder.Draw += Draw;
         DalamudApi.PluginInterface.UiBuilder.Draw += DrawConfig;
@@ -44,10 +47,15 @@ internal class PluginUI : IDisposable
         foreach (var (id, icon) in Icon) icon?.Dispose();
     }
 
-    public void DoAction(uint actionId)
+    public void DoAction(uint source,uint actionId)
     {
         try
         {
+            if (target != source)
+            {
+                target = source;
+                Skilllist.Clear();
+            }
             var action = Action.GetRow(actionId)!;
             if (actionId == 3)
             {
@@ -68,10 +76,15 @@ internal class PluginUI : IDisposable
         
     }
 
-    public void Cast(uint actionId)
+    public void Cast(uint source, uint actionId)
     {
         try
         {
+            if (target != source)
+            {
+                target = source;
+                Skilllist.Clear();
+            }
             var action = Action.GetRow(actionId)!;
             var iconId = action.Icon;
             if (!Icon.ContainsKey(iconId))
@@ -87,10 +100,15 @@ internal class PluginUI : IDisposable
         
     }
 
-    public void Cancel(uint actionId)
+    public void Cancel(uint source, uint actionId)
     {
         try
         {
+            if (target != source)
+            {
+                target = source;
+                Skilllist.Clear();
+            }
             var action = Action.GetRow(actionId)!;
             var iconId = action.Icon;
             if (!Icon.ContainsKey(iconId))
@@ -115,11 +133,7 @@ internal class PluginUI : IDisposable
     public void Draw()
     {
         ImGui.SetNextWindowBgAlpha(config.Alpha);
-        if (config.TargetMode && DalamudApi.TargetManager.Target != null && target != DalamudApi.TargetManager.Target.ObjectId)
-        {
-            target = DalamudApi.TargetManager.Target.ObjectId;
-            Skilllist.Clear();
-        } 
+        
         var flags = config.Lock
             ? ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMouseInputs | ImGuiWindowFlags.NoTitleBar
             : ImGuiWindowFlags.NoTitleBar;
@@ -195,20 +209,23 @@ internal class PluginUI : IDisposable
         var size = (int) config.IconSize;
         var changed = false;
         changed |= ImGui.Checkbox("Lock", ref config.Lock);
-        ImGui.Text("Background Alpha:");
+        ImGui.Text("Mode:");
         ImGui.SameLine();
-        changed |= ImGui.SliderFloat("###alpha",ref config.Alpha,0f,1f);
+        changed |= ImGui.Combo("###mode", ref config.Mode, modes, 3);
         ImGui.Text("Icon Size:");
         ImGui.SameLine();
         changed |= ImGui.InputInt("###Icon Size", ref size, 1);
+        ImGui.Text("Background Alpha:");
+        ImGui.SameLine();
+        changed |= ImGui.SliderFloat("###alpha",ref config.Alpha,0f,1f);
         changed |= ImGui.ColorPicker4("Connection Color", ref config.color, ImGuiColorEditFlags.NoInputs);
         changed |= ImGui.Checkbox("Show Auto-attack.", ref config.ShowAuto);
-        changed |= ImGui.Checkbox("Target Mode", ref config.TargetMode);
         if (ImGui.IsItemHovered()) ImGui.SetTooltip("Will show nothing if no target is selected!");
         if (ImGui.Button("Reset Size")) reset = true;
         if (changed)
         {
             config.IconSize = size;
+            //Skilllist.Clear();
             config.Save();
         }
 
