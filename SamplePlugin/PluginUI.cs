@@ -35,8 +35,8 @@ internal class PluginUI : IDisposable
         if (!Icon.ContainsKey(0))
             Icon.TryAdd(0,
                 DalamudApi.DataManager.GetImGuiTextureHqIcon(0));
-        Icon.TryAdd(405,
-            DalamudApi.DataManager.GetImGuiTextureHqIcon(101));
+        //Icon.TryAdd(405,
+        //    DalamudApi.DataManager.GetImGuiTextureHqIcon(101));
     }
 
     public void Dispose()
@@ -60,6 +60,11 @@ internal class PluginUI : IDisposable
             if (actionId == 3)
             {
                 action.Icon = 104;
+            }
+
+            if (actionId is 7 or 8)
+            {
+                action.Icon = 101;
             }
             var iconId = action.Icon;
             if (!Icon.ContainsKey(iconId))
