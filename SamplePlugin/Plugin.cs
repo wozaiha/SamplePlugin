@@ -76,7 +76,7 @@ public sealed class Plugin : IDalamudPlugin
         ActorControlSelfHook.Original(entityId, type, buffID, direct, actionId, sourceId, arg4, arg5, targetId, a10);
         if (type != 15) return;
         if (DalamudApi.ClientState.LocalPlayer == null) return;
-        if (entityId != CheckTarget() || type != 1) return;
+        if (entityId != CheckTarget()) return;
         PluginLog.Debug($"Cancel:{entityId:X} {actionId}");
         PluginUi.Cancel(entityId,actionId);
     }
