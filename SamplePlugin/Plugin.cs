@@ -40,10 +40,7 @@ public sealed class Plugin : IDalamudPlugin
 
         {
             ReceivAbilityHook = new Hook<ReceiveAbiltyDelegate>(
-                DalamudApi.SigScanner.ScanText(
-                    DalamudApi.DataManager.GameData.Repositories["ffxiv"].Version == "2022.04.15.0000.0000"
-                        ? "4C 89 44 24 18 53 56 57 41 54 41 57 48 81 EC ?? 00 00 00 8B F9"
-                        : "4C 89 44 24 ?? 55 56 57 41 54 41 55 41 56 48 8D 6C 24 ??"),
+                DalamudApi.SigScanner.ScanText("4C 89 44 24 ?? 55 56 57 41 54 41 55 41 56 48 8D 6C 24 ??"),
                 ReceiveAbilityEffect);
             ReceivAbilityHook.Enable();
             ActorControlSelfHook = new Hook<ActorControlSelfDelegate>(
@@ -61,13 +58,33 @@ public sealed class Plugin : IDalamudPlugin
     {
         var action = Marshal.ReadInt16(ptr);
         var type = Marshal.ReadByte(ptr, 2);
+        //var data = Marshal.PtrToStructure<ActorCast>(ptr);
         CastHook.Original(source, ptr);
-
+        //if (source == DalamudApi.TargetManager.Target.ObjectId) 
+        //    PluginLog.Error($"{data.action_id}:{data.skillType}:{data.unknown}:{data.id}:{data.cast_time}:{data.rotation}:UNKNOWN={data.unknown}:UNKNOWN2={data.unknown_2}:UNKNOWN3={data.unknown_3}:{data.UnkUshort}");
         if (DalamudApi.ClientState.LocalPlayer == null) return;
         if (source != CheckTarget() || type != 1) return;
-        PluginLog.Debug($"Casting:{action}:{type}");
+        //PluginLog.Debug($"Casting:{action}:{type}");
         PluginUi.Cast(source,(uint) action);
     }
+
+    struct ActorCast
+    {
+        public ushort action_id;
+        public byte skillType;
+        public byte unknown;
+        public uint id; // action id or mount id
+        public float cast_time;
+        public uint target_id;
+        public ushort rotation;
+        public ushort flag; // 1 = interruptible blinking cast bar
+        public ushort unknown_2;
+        public ushort posX;
+        public ushort posY;
+        public ushort posZ;
+        public ushort unknown_3;
+        public ushort UnkUshort;
+    };
 
     private void ReceiveActorControlSelf(uint entityId, uint type, uint buffID, uint direct, uint actionId,
         uint sourceId,

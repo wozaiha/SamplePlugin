@@ -11,7 +11,7 @@
         "Imgui",
         "UI"
     ],
-    "DalamudApiLevel": 6,
+    "DalamudApiLevel": 7,
     "RepoUrl": "https://github.com/wozaiha/SkillDisplay",
-    "AssemblyVersion": "0.0.0.4"
+    "AssemblyVersion": "0.0.0.4",
 }
