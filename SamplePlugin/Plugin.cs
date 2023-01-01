@@ -39,8 +39,9 @@ public sealed class Plugin : IDalamudPlugin
         #region Hook
 
         {
+            //took from https://github.com/lmcintyre/DamageInfoPlugin/blob/main/DamageInfoPlugin/DamageInfoPlugin.cs#L133
             ReceivAbilityHook = new Hook<ReceiveAbiltyDelegate>(
-                DalamudApi.SigScanner.ScanText("4C 89 44 24 ?? 55 56 57 41 54 41 55 41 56 48 8D 6C 24 ??"),
+                DalamudApi.SigScanner.ScanText("4C 89 44 24 ?? 55 56 41 54 41 55 41 56"),
                 ReceiveAbilityEffect);
             ReceivAbilityHook.Enable();
             ActorControlSelfHook = new Hook<ActorControlSelfDelegate>(
